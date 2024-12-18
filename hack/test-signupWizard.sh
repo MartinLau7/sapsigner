@@ -3,17 +3,19 @@ set -eux -o 'pipefail'
 
 SAPSIGNER="${1}"
 function sapsigner {
-	local SRC="$(readlink -f -- "${BASH_SOURCE[0]}")"
-	local DIR="$(dirname -- "${SRC}")"
+	local ABS="$(readlink -f -- "${SAPSIGNER}")"
+	local DIR="$(dirname -- "${ABS}")"
 
-	DYLD_LIBRARY_PATH="${DIR}/../lib" LD_LIBRARY_PATH="${DIR}/../lib" "${SAPSIGNER}" "${@:+"${@}"}"
+	DYLD_LIBRARY_PATH="${DIR}:${DIR}/lib" LD_LIBRARY_PATH="${DIR}:${DIR}/lib" "${SAPSIGNER}" "${@:+"${@}"}"
 }
 
 SIG="$(
-	:           \
-	| sapsigner \
-		-p  \
-	| base64    \
+	:               \
+	| sapsigner     \
+		-p      \
+	| base64        \
+	| tr            \
+		-d '\n' \
 	;
 )"
 
