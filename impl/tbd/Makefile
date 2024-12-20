@@ -1,4 +1,4 @@
-SHELL := $(SHELL) -o 'pipefail'
+override SHELL := $(SHELL) -o 'pipefail'
 
 all: build
 .PHONY: all
@@ -11,4 +11,4 @@ clean:
 .PHONY: clean
 
 sapsigner.out: *.c *.h *.tbd
-	clang -L . -O2 -Wall -Wextra -Wpedantic -lcurl -lmescal -lsasl2 -o $@ *.c
+	clang -L. -O2 -Wall -Wextra -Wpedantic -lcurl -lmescal -lsasl2 -o $@ *.c
