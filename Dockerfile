@@ -1,16 +1,13 @@
 # syntax=docker.io/docker/dockerfile:1
 
-FROM docker.io/library/ubuntu:noble AS build
+FROM docker.io/library/golang:1.23-bookworm AS build
 WORKDIR /usr/local/src/sapsigner
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y clang make libcurl4-openssl-dev libsasl2-dev libunicorn-dev && \
+    apt-get install --no-install-recommends -y curl make && \
     rm -Rf /var/lib/apt/lists/*
 COPY . .
-RUN make SHELL=/bin/bash clean sapsigner-emu.out
+RUN make SHELL=/bin/bash BUILD_STATIC=1 sapsigner-emu.out
 
-FROM docker.io/library/ubuntu:noble AS run
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y ca-certificates libcurl4t64 libsasl2-2 libunicorn2t64 && \
-    rm -Rf /var/lib/apt/lists/*
+FROM gcr.io/distroless/static-debian12:nonroot AS run
 COPY --from=build /usr/local/src/sapsigner/sapsigner-emu.out /usr/local/bin/sapsigner
 ENTRYPOINT ["sapsigner"]

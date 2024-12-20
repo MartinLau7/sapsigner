@@ -1,19 +1,29 @@
-SHELL := $(SHELL) -o 'pipefail'
+override SHELL := $(SHELL) -o 'pipefail'
 
 VARIANTS := $(notdir $(wildcard impl/*))
 
-all: build
+export
+
+all: $(patsubst %,sapsigner-%.out,$(VARIANTS))
 .PHONY: all
 
-build: $(patsubst %,sapsigner-%.out,$(VARIANTS))
+all(%):
+	$(MAKE) -C impl/$% all
+.PHONY: all(%)
+
+build: $(patsubst %,build(%),$(VARIANTS))
 .PHONY: build
+
+build(%):
+	$(MAKE) -C impl/$% build
+.PHONY: build(%)
 
 clean: $(patsubst %,clean(%),$(VARIANTS))
 	rm -Rf *.out
 .PHONY: clean
 
 clean(%):
-	$(MAKE) -C impl/$% SHELL='$(SHELL)' clean
+	$(MAKE) -C impl/$% clean
 .PHONY: clean(%)
 
 docker:
@@ -24,13 +34,13 @@ test: test(hack/docker-run.sh) $(patsubst %,test(impl/%/sapsigner.out),$(VARIANT
 .PHONY: test
 
 test(%): %
-	$(eval F := $(abspath $<))
+	$(eval override F := $(abspath $<))
 	./hack/test-authenticate.sh '$(F)'
 	./hack/test-signupWizard.sh '$(F)'
 .PHONY: test(%)
 
-impl/%/sapsigner.out:
-	$(MAKE) -C impl/$(patsubst impl/%/sapsigner.out,%,$@) SHELL='$(SHELL)' sapsigner.out
+impl/%/sapsigner.out: all(%)
+	@ :
 
 sapsigner-%.out: impl/%/sapsigner.out
 	ln -Lf $< $@
