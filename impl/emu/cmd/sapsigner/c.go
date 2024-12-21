@@ -9,5 +9,5 @@ package main
 // #cgo  darwin LDFLAGS: -Wl,-rpath,@loader_path/../lib
 // #cgo   linux LDFLAGS: -Wl,-rpath,/home/linuxbrew/.linuxbrew/lib
 // #cgo  darwin LDFLAGS: -Wl,-rpath,/opt/homebrew/lib
-// #cgo         LDFLAGS: -Wl,-rpath,/usr/local/lib
+// #cgo  darwin LDFLAGS: -Wl,-rpath,/usr/local/lib
 import "C"
