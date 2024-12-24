@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/blacktop/go-macho"
 	"github.com/blacktop/go-macho/types"
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/log"
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 )
 
 type Object struct {

@@ -7,10 +7,10 @@ import (
 
 	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/interposer"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/library"
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/log"
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/trace"
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/trace"
 )
 
 const (

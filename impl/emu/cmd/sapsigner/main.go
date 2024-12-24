@@ -9,12 +9,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/certificate"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/definitions"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/emulator"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/guid"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/library"
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/log"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/play"
 )
 
