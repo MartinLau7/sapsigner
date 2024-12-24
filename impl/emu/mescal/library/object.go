@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/blacktop/go-macho"
 	"github.com/blacktop/go-macho/types"
+
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 )
 

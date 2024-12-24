@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"howett.net/plist"
 	"io"
 	"net/http"
+
+	"howett.net/plist"
 )
 
 const (
