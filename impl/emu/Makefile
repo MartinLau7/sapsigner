@@ -39,6 +39,11 @@ clean:
 	rm -Rfv *.out include lib
 .PHONY: clean
 
+format:
+	go fmt ./...
+	go run github.com/daixiang0/gci write --custom-order --skip-generated --skip-vendor -s 'standard' -s 'prefix(golang.org/x)' -s 'blank' -s 'dot' -s 'default' -s 'localmodule' .
+.PHONY: format
+
 vendor: include/unicorn/unicorn.h lib/libunicorn.a
 .PHONY: clean
 
