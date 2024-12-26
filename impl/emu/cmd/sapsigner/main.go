@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/certificate"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/definitions"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/emulator"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/guid"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/library"
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/play"
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/mzinit"
+	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/mzplay"
 )
 
 func main() {
@@ -38,16 +38,6 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 	}
 	defer iFile.Close()
 
-	id, err := guid.Get()
-	if err != nil {
-		return err
-	}
-
-	crt, err := certificate.Fetch(ctx)
-	if err != nil {
-		return err
-	}
-
 	lib, err := library.Fetch(ctx)
 	if err != nil {
 		return err
@@ -59,6 +49,11 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 	}
 
 	e, err := emulator.NewEmulator(o)
+	if err != nil {
+		return err
+	}
+
+	id, err := guid.Get()
 	if err != nil {
 		return err
 	}
@@ -76,6 +71,11 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 		xVer = definitions.FairPlaySAPExchangeVersionPrime
 	}
 
+	crt, err := mzinit.SignSAPSetupCert(ctx)
+	if err != nil {
+		return err
+	}
+
 	oBuf, returnCode0, err := e.FairPlaySAPExchange(xVer, &hwInfo, ctxRef, crt)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 		return fmt.Errorf("FairPlaySAPExchange: %d != 1", returnCode0)
 	}
 
-	iBuf, err := play.SignSAPSetup(ctx, oBuf)
+	iBuf, err := mzplay.SignSAPSetup(ctx, oBuf)
 	if err != nil {
 		return err
 	}

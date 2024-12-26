@@ -1,4 +1,4 @@
-package certificate
+package mzinit
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	crtURL = "https://s.mzstatic.com/sap/setup.crt"
+	signSAPSetupCertURL = "https://s.mzstatic.com/sap/setup.crt" // https://init.itunes.apple.com/WebObjects/MZInit.woa/wa/signSapSetupCert
 )
 
-func Fetch(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, crtURL, nil)
+func SignSAPSetupCert(ctx context.Context) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, signSAPSetupCertURL, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package play
+package mzplay
 
 import (
 	"bytes"
