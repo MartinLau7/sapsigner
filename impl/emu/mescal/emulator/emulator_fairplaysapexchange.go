@@ -10,7 +10,7 @@ import (
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/library"
 )
 
-func (e *Emulator) FairPlaySAPExchange(version *definitions.FairPlaySAPExchangeVersion, hwInfo *definitions.FairPlayHwInfo, ctxRef *definitions.FPSAPContextOpaqueRef, iBuf []byte) ([]byte, int32, error) {
+func (e *Emulator) FairPlaySAPExchange(xVer *definitions.FairPlaySAPExchangeVersion, hwInfo *definitions.FairPlayHwInfo, ctxRef *definitions.FPSAPContextOpaqueRef, iBuf []byte) ([]byte, int32, error) {
 	iLen := len(iBuf)
 	if iLen > math.MaxUint32 {
 		return nil, 0, fmt.Errorf("FairPlaySAPSign: input buffer too large")
@@ -51,7 +51,7 @@ func (e *Emulator) FairPlaySAPExchange(version *definitions.FairPlaySAPExchangeV
 	defer rcBridge.Close()
 
 	var (
-		arg0 = uint64(version.GetVal())
+		arg0 = uint64(xVer.GetVal())
 		arg1 = hwInfoBridge.Addr()
 		arg2 = ctxRef.GetAddr()
 		arg3 = iBufBridge.Addr()

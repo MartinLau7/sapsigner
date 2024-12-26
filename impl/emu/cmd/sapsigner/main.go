@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/certificate"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/definitions"
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/emulator"
@@ -22,42 +20,23 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := Main(ctx); err != nil {
+	if err := Main(ctx, flagInput, flagOutput, flagPrimed); err != nil {
 		panic(err)
 	}
 }
 
-func Main(ctx context.Context) error {
-	iFile := os.Stdin
-	oFile := os.Stdout
-
-	for i, arg := range os.Args {
-		var fd **os.File
-		switch i {
-		case 0:
-			continue
-		case 1:
-			fd = &iFile
-		case 2:
-			fd = &oFile
-		default:
-			return errors.New("too many arguments provided")
-		}
-
-		if arg == "-" {
-			continue
-		}
-
-		f, err := os.Open(arg)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		*fd = f
+func Main(ctx context.Context, iName string, oName string, primeData bool) error {
+	iFile, err := openOr(iName, os.Stdin)
+	if err != nil {
+		return err
 	}
+	defer iFile.Close()
 
-	log.Logger().SetOutput(io.Discard)
+	oFile, err := openOr(oName, os.Stdout)
+	if err != nil {
+		return err
+	}
+	defer iFile.Close()
 
 	id, err := guid.Get()
 	if err != nil {
@@ -92,7 +71,12 @@ func Main(ctx context.Context) error {
 		return err
 	}
 
-	oBuf, returnCode0, err := e.FairPlaySAPExchange(definitions.FairPlaySAPExchangeVersionRegular, &hwInfo, ctxRef, crt)
+	xVer := definitions.FairPlaySAPExchangeVersionRegular
+	if primeData {
+		xVer = definitions.FairPlaySAPExchangeVersionPrime
+	}
+
+	oBuf, returnCode0, err := e.FairPlaySAPExchange(xVer, &hwInfo, ctxRef, crt)
 	if err != nil {
 		return err
 	}
@@ -105,7 +89,7 @@ func Main(ctx context.Context) error {
 		return err
 	}
 
-	_, returnCode1, err := e.FairPlaySAPExchange(definitions.FairPlaySAPExchangeVersionRegular, &hwInfo, ctxRef, iBuf)
+	_, returnCode1, err := e.FairPlaySAPExchange(xVer, &hwInfo, ctxRef, iBuf)
 	if err != nil {
 		return err
 	}
@@ -118,7 +102,12 @@ func Main(ctx context.Context) error {
 		return err
 	}
 
-	oBytes, err := e.FairPlaySAPSign(ctxRef, iBytes)
+	processData := SignData
+	if primeData {
+		processData = PrimeData
+	}
+
+	oBytes, err := processData(e, ctxRef, iBytes)
 	if err != nil {
 		return err
 	}
@@ -136,4 +125,12 @@ func Main(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func SignData(e *emulator.Emulator, ctxRef *definitions.FPSAPContextOpaqueRef, iBytes []byte) ([]byte, error) {
+	return e.FairPlaySAPSign(ctxRef, iBytes)
+}
+
+func PrimeData(e *emulator.Emulator, ctxRef *definitions.FPSAPContextOpaqueRef, iBytes []byte) ([]byte, error) {
+	return e.FairPlaySAPPrime(ctxRef, definitions.FairPlaySAPPrimeVersionRegular, iBytes)
 }

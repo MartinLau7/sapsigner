@@ -10,7 +10,7 @@ import (
 	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/mescal/library"
 )
 
-func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, ui32 uint32, iBuf []byte) ([]byte, error) {
+func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, pVer *definitions.FairPlaySAPPrimeVersion, iBuf []byte) ([]byte, error) {
 	iLen := len(iBuf)
 	if iLen > math.MaxUint32 {
 		return nil, fmt.Errorf("FairPlaySAPPrime: input buffer too large")
@@ -46,7 +46,7 @@ func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, u
 
 	var (
 		arg0 = ctxRef.GetAddr()
-		arg1 = uint64(ui32) // variable not currently understood
+		arg1 = uint64(pVer.GetVal())
 		arg2 = iBufBridge.Addr()
 		arg3 = uint64(iLen)
 		arg4 = oPtrBridge.Addr()
