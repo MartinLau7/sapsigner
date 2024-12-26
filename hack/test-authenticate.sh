@@ -44,6 +44,11 @@ SIG="$(
 	;
 )"
 
+[ "$(curl -s -w '%{response_code}' 'file:///' 2>&1)" = '000' ] || {
+	echo 'curl 7.18.2 or newer is required' 1>&2
+	exit -1
+}
+
 :                                                                                      \
 | curl                                                                                 \
 	-H 'User-Agent: MacAppStore/1.3 (Macintosh; OS X 10.9.5) AppleWebKit/537.78.2' \

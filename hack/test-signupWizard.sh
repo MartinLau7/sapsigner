@@ -19,6 +19,11 @@ SIG="$(
 	;
 )"
 
+[ -z "$(curl -s -w '%header{}' 'file:///' 2>&1)" ] || {
+	echo 'curl 7.84.0 or newer is required' 1>&2
+	exit -1
+}
+
 :                                                                                                     \
 | curl                                                                                                \
 	-H 'User-Agent: iTunes/12.6.2 (Macintosh; OS X 10.9.5) AppleWebKit/537.78.2'                  \
