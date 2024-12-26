@@ -23,11 +23,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             deps: make -C impl/emu SHELL='/bin/bash' include/unicorn/unicorn.h lib/libunicorn.a
           - os: macos-15
             deps: brew install 'unicorn'
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             deps: sudo apt-get update && sudo apt-get install -y 'libcurl4-openssl-dev' 'libsasl2-dev' && make -C 'impl/emu' SHELL='/bin/bash' 'include/unicorn/unicorn.h' 'lib/libunicorn.a'
           - os: ubuntu-24.04
             deps: sudo apt-get update && sudo apt-get install -y 'libcurl4-openssl-dev' 'libsasl2-dev' 'libunicorn-dev'
@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: make SHELL='/bin/bash' 'docker'
