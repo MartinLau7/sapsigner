@@ -48,10 +48,13 @@ vendor: include/unicorn/unicorn.h lib/libunicorn.a
 .PHONY: clean
 
 include/unicorn/unicorn.h lib/libunicorn.a lib/libunicorn.dylib:
-ifneq ($(UNICORN_BLOB),)
-	curl -H 'Accept: application/vnd.oci.image.index.v1+json' -H 'Authorization: Bearer QQ==' -Lf 'https://ghcr.io/v2/homebrew/core/unicorn/blobs/$(UNICORN_BLOB)' | zcat -f | tar --strip-components 2 -vx unicorn/$(UNICORN_VERSION)/include unicorn/$(UNICORN_VERSION)/lib
-else
+ifeq ($(UNICORN_BLOB),)
 	$(warning Unable to vendor Unicorn $(UNICORN_VERSION) for $(UNAME_SYSNAME) $(UNAME_MACHINE))
+else
+	curl -H 'Accept: application/vnd.oci.image.index.v1+json' -H 'Authorization: Bearer QQ==' -Lf 'https://ghcr.io/v2/homebrew/core/unicorn/blobs/$(UNICORN_BLOB)' | zcat -f | tar --strip-components 2 -vx unicorn/$(UNICORN_VERSION)/include unicorn/$(UNICORN_VERSION)/lib
+ifeq ($(UNAME_SYSNAME),Darwin)
+	install_name_tool -id '@rpath/libunicorn.2.dylib' lib/libunicorn.2.dylib
+endif
 endif
 
 sapsigner.out: FORCE
