@@ -56,7 +56,7 @@ object/relt.go: object/relt.awk main.relt
 	otool -X -s '__TEXT' '__unwind_info' '$<' > '$@'
 
 %.o: %.c
-	clang -O's' -W'all' -W'error' -W'extra' -W'pedantic' -arch 'x86_64' -c -f'freestanding' -f'no-PIC' -o'$@' -std='c2x' '$<'
+	clang -O's' -W'all' -W'error' -W'extra' -W'pedantic' -arch 'x86_64' -c -f'freestanding' -f'no-PIC' -march='x86-64' -o'$@' -std='c2x' '$<'
 
 %.c: %.h
 	touch '$@'
