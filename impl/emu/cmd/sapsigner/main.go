@@ -38,17 +38,37 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 	}
 	defer iFile.Close()
 
-	lib, err := library.Fetch(ctx)
+	artifacts, err := library.Fetch(ctx)
 	if err != nil {
 		return err
 	}
 
-	o, err := library.NewObject(lib)
+	corefpicxsO, err := library.NewCoreFPICXSObject(artifacts["CoreFP.icxs"])
 	if err != nil {
 		return err
 	}
 
-	e, err := emulator.NewEmulator(o)
+	corefpO, err := library.NewCoreFPObject(artifacts["CoreFP"])
+	if err != nil {
+		return err
+	}
+
+	commercecoreO, err := library.NewCommerceCoreObject(artifacts["CommerceCore"])
+	if err != nil {
+		return err
+	}
+
+	commercekitO, err := library.NewCommerceKitObject(artifacts["CommerceKit"])
+	if err != nil {
+		return err
+	}
+
+	storeagentO, err := library.NewStoreAgentObject(artifacts["storeagent"])
+	if err != nil {
+		return err
+	}
+
+	e, err := emulator.NewEmulator(corefpicxsO, corefpO, commercecoreO, commercekitO, storeagentO)
 	if err != nil {
 		return err
 	}

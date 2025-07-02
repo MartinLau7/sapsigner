@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"slices"
 
-	"github.com/blacktop/go-apfs/pkg/disk/dmg"
 	"github.com/blacktop/go-macho/pkg/xar"
 	"howett.net/ranger"
 
@@ -17,52 +19,42 @@ import (
 )
 
 const (
-	dmgURL    = "https://updates.cdn-apple.com/2019/cert/041-88140-20191011-250758ef-d633-428d-afa8-7334f518e125/OSXUpd10.9.1.dmg"
-	blkName   = "disk image (Apple_HFS : 3)"
-	hfsxPath  = "OSXUpd10.9.1.pkg"
-	pkgAddr   = 0x0B7EF000
-	pkgSize   = 0x17991000 - 0x0B7EF000
-	xarPath   = "OSXUpd10.9.1.pkg/Payload"
-	bzip2Addr = 0x07AAB308
-	cpioAddr  = 0x000151E5
-	cpioPath  = "./System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/CommerceKit"
+	pkgURL    = "http://swcdn.apple.com/content/downloads/27/34/041-98128-A_SYPWICN3KH/5dqkl4rqgbsr18yzy61yeie9g3cmjc5hiv/OSXUpd10.9.pkg"
+	xarPath   = "Payload"
+	bzip2Addr = 0x352F40D5                                                                                                                      // offset of the first `BZh9` header after offset `bz2SR.*.(*io.SectionReader).off - bz2SR.*.(*io.SectionReader).base` when `bz2SR` is seeked to offset 0x99225F27
+	cpioAddr  = 0x000003A4                                                                                                                      // offset of the first `070707` magic in `odcBZ2R`
+	ckfwPath  = "./System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/CommerceKit"                                               // 0x99225F20 + 7
+	stagPath  = "./System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeagent"                                      // 0x9991B4C0 + 13
+	ccfwPath  = "./System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Frameworks/CommerceCore.framework/Versions/A/CommerceCore" // 0x99D46090 + 8
+	fpfwPath  = "./System/Library/PrivateFrameworks/CoreFP.framework/Versions/A/CoreFP"                                                         // 0x9ADB31D0 + 14
+	icsxPath  = "./System/Library/PrivateFrameworks/CoreFP.framework/Versions/A/CoreFP.icxs"                                                    // 0x9C95EDF0 + 0
 )
 
-func Fetch(ctx context.Context) ([]byte, error) {
-	diskImageURL, err := url.Parse(dmgURL)
+var (
+	artifactPaths = []string{ckfwPath, stagPath, ccfwPath, fpfwPath, icsxPath}
+	artifactCount = len(artifactPaths)
+)
+
+func Fetch(ctx context.Context) (map[string][]byte, error) {
+	pkgURL, err := url.Parse(pkgURL)
 	if err != nil {
 		return nil, err
 	}
 
-	diskImageR, err := ranger.NewReader(&ranger.HTTPRanger{
+	pkgR, err := ranger.NewReader(&ranger.HTTPRanger{
 		Client: http.DefaultClient,
-		URL:    diskImageURL,
+		URL:    pkgURL,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	diskImageLen, err := diskImageR.Length()
+	pkgLen, err := pkgR.Length()
 	if err != nil {
 		return nil, err
 	}
 
-	diskImageSR := io.NewSectionReader(diskImageR, 0, diskImageLen)
-
-	diskImage, err := dmg.NewDMG(diskImageSR)
-	if err != nil {
-		return nil, err
-	}
-	defer diskImage.Close()
-
-	block, err := diskImage.GetBlock(blkName)
-	if err != nil {
-		return nil, err
-	}
-
-	pkgSR := io.NewSectionReader(block, int64(pkgAddr), int64(pkgSize))
-
-	pkgXR, err := xar.NewReader(pkgSR, int64(pkgSize))
+	pkgXR, err := xar.NewReader(pkgR, pkgLen)
 	if err != nil {
 		return nil, err
 	}
@@ -92,27 +84,38 @@ func Fetch(ctx context.Context) ([]byte, error) {
 	bz2MR := io.MultiReader(bytes.NewBufferString("BZh9"), bz2SR)
 
 	odcBZ2R := bzip2.NewReader(bz2MR)
-	if _, err := odcBZ2R.Read(make([]byte, cpioAddr)); err != nil {
+	if _, err := io.ReadFull(odcBZ2R, make([]byte, cpioAddr)); err != nil {
 		return nil, err
 	}
 
-	var frameworkRC io.ReadCloser
+	artifacts := make(map[string][]byte, artifactCount)
 	for name, file := range cpio.NewIterator(odcBZ2R) {
-		if name != cpioPath {
+		if slices.Contains(artifactPaths, name) {
+			data, err := io.ReadAll(file)
+			if err != nil {
+				return nil, err
+			}
+
+			artifacts[filepath.Base(name)] = data
+		}
+
+		if len(artifacts) == artifactCount {
+			return artifacts, nil
+		}
+	}
+
+	errs := make([]error, artifactCount-len(artifacts))
+	for _, cpioPath := range artifactPaths {
+		if _, ok := artifacts[filepath.Base(cpioPath)]; ok {
 			continue
 		}
 
-		frameworkRC = file
-		break
-	}
-	if frameworkRC == nil {
-		return nil, &fs.PathError{
+		err := &fs.PathError{
 			Op:   "open",
 			Path: cpioPath,
 			Err:  fs.ErrNotExist,
 		}
+		errs = append(errs, err)
 	}
-	defer frameworkRC.Close()
-
-	return io.ReadAll(frameworkRC)
+	return nil, errors.Join(errs...)
 }

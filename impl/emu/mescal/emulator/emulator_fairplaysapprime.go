@@ -56,7 +56,7 @@ func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, p
 		return nil, err
 	}
 
-	funcAddr := mescalAddr + e.mescalO.SymbolAddress(library.SymbolFairPlaySAPPrime)
+	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPPrime)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return nil, err
 	}

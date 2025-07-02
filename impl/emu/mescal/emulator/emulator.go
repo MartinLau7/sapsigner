@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"maps"
 
 	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
@@ -14,22 +15,22 @@ import (
 )
 
 const (
-	pageSize        = uint64(0x1000)
-	startAddr       = uint64(0x0000000100000000)
-	finishAddr      = startAddr - 1
-	interposerAddr  = uint64(0x0000000100004000)
-	bridgeAddr      = uint64(0x0000600000000000)
-	heapHeadAddr    = uint64(0x00007FF7B0000000)
-	heapTailAddr    = uint64(0x00007FF7B4000000)
-	heapSize        = heapTailAddr - heapHeadAddr
-	stackTopAddr    = uint64(0x00007FF7BF800000)
-	stackBottomAddr = uint64(0x00007FF7C0000000)
-	stackSize       = stackBottomAddr - stackTopAddr
-	mescalAddr      = uint64(0x00007FF800000000)
-
-	// startAddr      = uint64(0x00007FF800000000)
-	// interposerAddr = uint64(0x00007FF800004000)
-	// mescalAddr     = uint64(0x0000000100000000)
+	pageSize         = uint64(0x1000)
+	startAddr        = uint64(0x0000000100000000)
+	finishAddr       = startAddr - 1
+	interposerAddr   = uint64(0x0000000100004000)
+	bridgeAddr       = uint64(0x0000600000000000)
+	heapHeadAddr     = uint64(0x00007FF7B0000000)
+	heapTailAddr     = uint64(0x00007FF7B4000000)
+	heapSize         = heapTailAddr - heapHeadAddr
+	stackTopAddr     = uint64(0x00007FF7BF800000)
+	stackBottomAddr  = uint64(0x00007FF7C0000000)
+	stackSize        = stackBottomAddr - stackTopAddr
+	corefpicxsAddr   = uint64(0x00007FF800000000)
+	corefpAddr       = uint64(0x00007FF804000000)
+	commercecoreAddr = uint64(0x00007FF808000000)
+	commercekitAddr  = uint64(0x00007FF80C000000)
+	storeagentAddr   = uint64(0x00007FF810000000)
 )
 
 var (
@@ -37,13 +38,48 @@ var (
 )
 
 type Emulator struct {
-	mescalO *library.Object
-	unicorn unicorn.Unicorn
-	pageSet map[uint64]struct{}
+	corefpicxsO   *library.Object
+	corefpO       *library.Object
+	commercecoreO *library.Object
+	commercekitO  *library.Object
+	storeagentO   *library.Object
+	unicorn       unicorn.Unicorn
+	pageSet       map[uint64]struct{}
 }
 
-func NewEmulator(mo *library.Object) (*Emulator, error) {
-	if err := mo.Fixup(mescalAddr, ip.SymbolTable()); err != nil {
+func NewEmulator(corefpicxsO *library.Object, corefpO *library.Object, commercecoreO *library.Object, commercekitO *library.Object, storeagentO *library.Object) (*Emulator, error) {
+	interposerST := ip.SymbolTable()
+	corefpicxsST := corefpicxsO.SymbolTable()
+	corefpST := corefpO.SymbolTable()
+	commercecoreST := commercecoreO.SymbolTable()
+	commercekitST := commercekitO.SymbolTable()
+	storeagentST := storeagentO.SymbolTable()
+
+	symbolTable := make(map[string]uint64, len(interposerST)+len(corefpicxsST)+len(corefpST)+len(commercecoreST)+len(commercekitST)+len(storeagentST))
+	maps.Insert(symbolTable, maps.All(interposerST))
+	maps.Insert(symbolTable, maps.All(corefpicxsST))
+	maps.Insert(symbolTable, maps.All(corefpST))
+	maps.Insert(symbolTable, maps.All(commercecoreST))
+	maps.Insert(symbolTable, maps.All(commercekitST))
+	maps.Insert(symbolTable, maps.All(storeagentST))
+
+	if err := corefpicxsO.Fixup(corefpicxsAddr, symbolTable); err != nil {
+		return nil, err
+	}
+
+	if err := corefpO.Fixup(corefpAddr, symbolTable); err != nil {
+		return nil, err
+	}
+
+	if err := commercecoreO.Fixup(commercecoreAddr, symbolTable); err != nil {
+		return nil, err
+	}
+
+	if err := commercekitO.Fixup(commercekitAddr, symbolTable); err != nil {
+		return nil, err
+	}
+
+	if err := storeagentO.Fixup(storeagentAddr, symbolTable); err != nil {
 		return nil, err
 	}
 
@@ -53,9 +89,13 @@ func NewEmulator(mo *library.Object) (*Emulator, error) {
 	}
 
 	e := Emulator{
-		mescalO: mo,
-		unicorn: uc,
-		pageSet: make(map[uint64]struct{}),
+		corefpicxsO:   corefpicxsO,
+		corefpO:       corefpO,
+		commercecoreO: commercecoreO,
+		commercekitO:  commercekitO,
+		storeagentO:   storeagentO,
+		unicorn:       uc,
+		pageSet:       make(map[uint64]struct{}),
 	}
 
 	if err := e.hookRDTSC(); err != nil {
@@ -66,7 +106,23 @@ func NewEmulator(mo *library.Object) (*Emulator, error) {
 		return nil, err
 	}
 
-	if err := e.loadMescal(); err != nil {
+	if err := e.loadCoreFPICXS(); err != nil {
+		return nil, err
+	}
+
+	if err := e.loadCoreFP(); err != nil {
+		return nil, err
+	}
+
+	if err := e.loadCommerceCore(); err != nil {
+		return nil, err
+	}
+
+	if err := e.loadCommerceKit(); err != nil {
+		return nil, err
+	}
+
+	if err := e.loadStoreAgent(); err != nil {
 		return nil, err
 	}
 
@@ -163,17 +219,64 @@ func (e *Emulator) loadInterposer() error {
 	return nil
 }
 
-func (e *Emulator) loadMescal() error {
-	size := e.mescalO.Size()
+func (e *Emulator) loadCoreFPICXS() error {
+	size := e.corefpicxsO.Size()
 	size += (pageSize - size) % pageSize
 
-	if err := e.unicorn.MemMap(mescalAddr, size); err != nil {
+	if err := e.unicorn.MemMap(corefpicxsAddr, size); err != nil {
 		return err
 	}
 
-	data := e.mescalO.Data()
+	data := e.corefpicxsO.Data()
+	return e.unicorn.MemWrite(corefpicxsAddr, data)
+}
 
-	return e.unicorn.MemWrite(mescalAddr, data)
+func (e *Emulator) loadCoreFP() error {
+	size := e.corefpO.Size()
+	size += (pageSize - size) % pageSize
+
+	if err := e.unicorn.MemMap(corefpAddr, size); err != nil {
+		return err
+	}
+
+	data := e.corefpO.Data()
+	return e.unicorn.MemWrite(corefpAddr, data)
+}
+
+func (e *Emulator) loadCommerceCore() error {
+	size := e.commercecoreO.Size()
+	size += (pageSize - size) % pageSize
+
+	if err := e.unicorn.MemMap(commercecoreAddr, size); err != nil {
+		return err
+	}
+
+	data := e.commercecoreO.Data()
+	return e.unicorn.MemWrite(commercecoreAddr, data)
+}
+
+func (e *Emulator) loadCommerceKit() error {
+	size := e.commercekitO.Size()
+	size += (pageSize - size) % pageSize
+
+	if err := e.unicorn.MemMap(commercekitAddr, size); err != nil {
+		return err
+	}
+
+	data := e.commercekitO.Data()
+	return e.unicorn.MemWrite(commercekitAddr, data)
+}
+
+func (e *Emulator) loadStoreAgent() error {
+	size := e.storeagentO.Size()
+	size += (pageSize - size) % pageSize
+
+	if err := e.unicorn.MemMap(storeagentAddr, size); err != nil {
+		return err
+	}
+
+	data := e.storeagentO.Data()
+	return e.unicorn.MemWrite(storeagentAddr, data)
 }
 
 func (e *Emulator) setupHeap() error {
