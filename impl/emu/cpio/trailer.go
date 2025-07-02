@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	TrailerName   = [13]byte{'T', 'R', 'A', 'I', 'L', 'E', 'R', '!', '!', '!', '\x00', '\x00', '\x00'}
+	TrailerName   = [11]byte{'T', 'R', 'A', 'I', 'L', 'E', 'R', '!', '!', '!', '\x00'}
 	TrailerHeader = Header{
 		Magic:    HeaderMagic,
 		Dev:      [6]byte{'0', '0', '0', '0', '0', '0'},
@@ -22,5 +22,9 @@ var (
 )
 
 func IsTrailer(header Header, name []byte) bool {
-	return header == TrailerHeader && slices.Equal(name, TrailerName[:])
+	trailerHeader := TrailerHeader
+	trailerHeader.Dev = header.Dev
+	trailerHeader.Ino = header.Ino
+
+	return header == trailerHeader && slices.Equal(name, TrailerName[:])
 }
