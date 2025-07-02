@@ -149,7 +149,7 @@ func (e *Emulator) loadInterposer() error {
 			}
 			e.pageSet[addr] = struct{}{}
 
-			if err := e.unicorn.MemMap(mappingAddr, pageSize); err != nil {
+			if err := e.unicorn.MemMap(addr, pageSize); err != nil {
 				return err
 			}
 		}
