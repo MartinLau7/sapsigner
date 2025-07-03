@@ -32,7 +32,7 @@ func (e *Emulator) FairPlaySAPInit(hwInfo *definitions.FairPlayHwInfo) (*definit
 		return nil, err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPInit)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPInit)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return nil, err
 	}

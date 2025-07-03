@@ -48,40 +48,32 @@ type Emulator struct {
 }
 
 func NewEmulator(corefpicxsO *library.Object, corefpO *library.Object, commercecoreO *library.Object, commercekitO *library.Object, storeagentO *library.Object) (*Emulator, error) {
-	interposerST := ip.SymbolTable()
-	corefpicxsST := corefpicxsO.SymbolTable()
-	corefpST := corefpO.SymbolTable()
-	commercecoreST := commercecoreO.SymbolTable()
-	commercekitST := commercekitO.SymbolTable()
-	storeagentST := storeagentO.SymbolTable()
-
-	symbolTable := make(map[string]uint64, len(interposerST)+len(corefpicxsST)+len(corefpST)+len(commercecoreST)+len(commercekitST)+len(storeagentST))
-	maps.Insert(symbolTable, maps.All(interposerST))
-	maps.Insert(symbolTable, maps.All(corefpicxsST))
-	maps.Insert(symbolTable, maps.All(corefpST))
-	maps.Insert(symbolTable, maps.All(commercecoreST))
-	maps.Insert(symbolTable, maps.All(commercekitST))
-	maps.Insert(symbolTable, maps.All(storeagentST))
+	symbolTable := maps.Clone(ip.SymbolTable())
 
 	if err := corefpicxsO.Fixup(corefpicxsAddr, symbolTable); err != nil {
 		return nil, err
 	}
+	maps.Insert(symbolTable, maps.All(corefpicxsO.SymbolTable()))
 
 	if err := corefpO.Fixup(corefpAddr, symbolTable); err != nil {
 		return nil, err
 	}
+	maps.Insert(symbolTable, maps.All(corefpO.SymbolTable()))
 
 	if err := commercecoreO.Fixup(commercecoreAddr, symbolTable); err != nil {
 		return nil, err
 	}
+	maps.Insert(symbolTable, maps.All(commercecoreO.SymbolTable()))
 
 	if err := commercekitO.Fixup(commercekitAddr, symbolTable); err != nil {
 		return nil, err
 	}
+	maps.Insert(symbolTable, maps.All(commercekitO.SymbolTable()))
 
 	if err := storeagentO.Fixup(storeagentAddr, symbolTable); err != nil {
 		return nil, err
 	}
+	maps.Insert(symbolTable, maps.All(storeagentO.SymbolTable()))
 
 	uc, err := unicorn.NewUnicorn(unicorn.ARCH_X86, unicorn.MODE_64)
 	if err != nil {

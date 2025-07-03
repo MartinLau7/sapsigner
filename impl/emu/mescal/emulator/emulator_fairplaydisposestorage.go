@@ -16,7 +16,7 @@ func (e *Emulator) FairPlayDisposeStorage(addr uint64) error {
 		return err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlayDisposeStorage)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlayDisposeStorage)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return err
 	}

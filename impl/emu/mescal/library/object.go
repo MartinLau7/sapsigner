@@ -227,17 +227,17 @@ func (o *Object) Size() uint64 {
 	return o.size
 }
 
+func (o *Object) SymbolAddress(symbol Symbol) uint64 {
+	return o.symTable[symbol]
+}
+
 func (o *Object) SymbolTable() map[string]uint64 {
 	symTable := make(map[string]uint64, len(o.symTable))
-	for k, v := range o.symTable {
-		symTable[k.String()] = v + o.baseAddr
+	for sym, addr := range o.symTable {
+		symTable[sym.String()] = addr
 	}
 
 	return symTable
-}
-
-func (o *Object) SymbolAddress(symbol Symbol) uint64 {
-	return o.symTable[symbol]
 }
 
 func (o *Object) Fixup(baseAddr uint64, symbolTable map[string]uint64) error {
@@ -247,6 +247,12 @@ func (o *Object) Fixup(baseAddr uint64, symbolTable map[string]uint64) error {
 
 	if err := o.bindReferences(symbolTable); err != nil {
 		return err
+	}
+
+	o.baseAddr = baseAddr
+
+	for sym := range o.symTable {
+		o.symTable[sym] += baseAddr
 	}
 
 	return nil

@@ -64,7 +64,7 @@ func (e *Emulator) FairPlaySAPExchange(xVer *definitions.FairPlaySAPExchangeVers
 		return nil, 0, err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPExchange)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPExchange)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return nil, 0, err
 	}

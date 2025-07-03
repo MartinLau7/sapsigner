@@ -17,7 +17,7 @@ func (e *Emulator) FairPlaySAPTeardown(ctxRef *definitions.FPSAPContextOpaqueRef
 		return err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPTeardown)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPTeardown)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return err
 	}

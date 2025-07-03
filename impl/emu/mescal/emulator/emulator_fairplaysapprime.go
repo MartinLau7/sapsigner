@@ -48,7 +48,7 @@ func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, p
 		return nil, err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPPrime)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPPrime)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return nil, err
 	}

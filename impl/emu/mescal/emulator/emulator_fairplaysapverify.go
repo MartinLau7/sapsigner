@@ -47,7 +47,7 @@ func (e *Emulator) FairPlaySAPVerify(ctxRef *definitions.FPSAPContextOpaqueRef, 
 		return nil, err
 	}
 
-	funcAddr := commercekitAddr + e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPVerify)
+	funcAddr := e.commercekitO.SymbolAddress(library.SymbolFairPlaySAPVerify)
 	if err := e.unicorn.RegWrite(unicorn.X86_REG_RAX, funcAddr); err != nil {
 		return nil, err
 	}
