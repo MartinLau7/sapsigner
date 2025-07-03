@@ -1,5 +1,5 @@
 //
-//  fssapcontextopaqueref.h
+//  fpsapcontextopaqueref.h
 //  SAPSigner
 //
 //  Created by Pedro Tôrres on 2024-12-15.
