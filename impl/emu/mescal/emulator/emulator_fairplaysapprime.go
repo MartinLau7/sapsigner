@@ -36,14 +36,6 @@ func (e *Emulator) FairPlaySAPPrime(ctxRef *definitions.FPSAPContextOpaqueRef, p
 	}
 	defer oLenBridge.Close()
 
-	var rc Int32
-
-	rcBridge, err := NewBridge(e.unicorn, rc.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	defer rcBridge.Close()
-
 	var (
 		arg0 = ctxRef.GetAddr()
 		arg1 = uint64(pVer.GetVal())
