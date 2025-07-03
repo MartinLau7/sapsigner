@@ -7,8 +7,6 @@ import (
 
 	"github.com/blacktop/go-macho"
 	"github.com/blacktop/go-macho/types"
-
-	"github.com/t0rr3sp3dr0/sapsigner/impl/emu/log"
 )
 
 type Object struct {
@@ -166,12 +164,7 @@ func NewCommerceKitObject(data []byte) (*Object, error) {
 
 		addr, err := file.FindSymbolAddress(name)
 		if err != nil {
-			if k != SymbolFairPlaySAPPrime {
-				return nil, fmt.Errorf("%s: %w", name, err)
-			}
-
-			logger := log.Logger()
-			logger.Printf("libmescal version does not support FairPlaySAPPrime: %s", name)
+			return nil, fmt.Errorf("%s: %w", name, err)
 		}
 		addr -= o.baseAddr
 
