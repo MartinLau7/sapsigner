@@ -36,7 +36,7 @@ func Main(ctx context.Context, iName string, oName string, primeData bool) error
 	if err != nil {
 		return err
 	}
-	defer iFile.Close()
+	defer oFile.Close()
 
 	artifacts, err := library.Fetch(ctx)
 	if err != nil {
