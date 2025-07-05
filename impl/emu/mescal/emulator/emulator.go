@@ -33,45 +33,42 @@ const (
 	storeagentAddr   = uint64(0x00007FF810000000)
 )
 
-var (
-	ip = interposer.NewInterposer(interposerAddr)
-)
-
 type Emulator struct {
 	corefpicxsO   *library.Object
 	corefpO       *library.Object
 	commercecoreO *library.Object
 	commercekitO  *library.Object
 	storeagentO   *library.Object
+	symbolTable   map[string]uint64
 	unicorn       unicorn.Unicorn
-	pageSet       map[uint64]struct{}
 }
 
 func NewEmulator(corefpicxsO *library.Object, corefpO *library.Object, commercecoreO *library.Object, commercekitO *library.Object, storeagentO *library.Object) (*Emulator, error) {
+	ip := interposer.NewInterposer(interposerAddr)
 	symbolTable := maps.Clone(ip.SymbolTable())
 
 	if err := corefpicxsO.Fixup(corefpicxsAddr, symbolTable); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fixup CoreFP.icxs: %w", err)
 	}
 	maps.Insert(symbolTable, maps.All(corefpicxsO.SymbolTable()))
 
 	if err := corefpO.Fixup(corefpAddr, symbolTable); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fixup CoreFP: %w", err)
 	}
 	maps.Insert(symbolTable, maps.All(corefpO.SymbolTable()))
 
 	if err := commercecoreO.Fixup(commercecoreAddr, symbolTable); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fixup CommerceCore: %w", err)
 	}
 	maps.Insert(symbolTable, maps.All(commercecoreO.SymbolTable()))
 
 	if err := commercekitO.Fixup(commercekitAddr, symbolTable); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fixup CommerceKit: %w", err)
 	}
 	maps.Insert(symbolTable, maps.All(commercekitO.SymbolTable()))
 
 	if err := storeagentO.Fixup(storeagentAddr, symbolTable); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fixup storeagent: %w", err)
 	}
 	maps.Insert(symbolTable, maps.All(storeagentO.SymbolTable()))
 
@@ -86,67 +83,73 @@ func NewEmulator(corefpicxsO *library.Object, corefpO *library.Object, commercec
 		commercecoreO: commercecoreO,
 		commercekitO:  commercekitO,
 		storeagentO:   storeagentO,
+		symbolTable:   symbolTable,
 		unicorn:       uc,
-		pageSet:       make(map[uint64]struct{}),
 	}
 
 	if err := e.hookRDTSC(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to hook RDTSC: %w", err)
 	}
 
-	if err := e.loadInterposer(); err != nil {
-		return nil, err
+	if err := e.loadInterposer(ip); err != nil {
+		return nil, fmt.Errorf("failed to load Interposer: %w", err)
 	}
 
 	if err := e.loadCoreFPICXS(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load CoreFP.icxs: %w", err)
 	}
 
-	if err := e.loadCoreFP(); err != nil {
-		return nil, err
+	if err := e.load(e.corefpO, corefpAddr); err != nil {
+		return nil, fmt.Errorf("failed to load CoreFP: %w", err)
 	}
 
-	if err := e.loadCommerceCore(); err != nil {
-		return nil, err
+	if err := e.load(e.commercecoreO, commercecoreAddr); err != nil {
+		return nil, fmt.Errorf("failed to load CommerceCore: %w", err)
 	}
 
-	if err := e.loadCommerceKit(); err != nil {
-		return nil, err
+	if err := e.load(e.commercekitO, commercekitAddr); err != nil {
+		return nil, fmt.Errorf("failed to load CommerceKit: %w", err)
 	}
 
-	if err := e.loadStoreAgent(); err != nil {
-		return nil, err
+	if err := e.load(e.storeagentO, storeagentAddr); err != nil {
+		return nil, fmt.Errorf("failed to load storeagent: %w", err)
+	}
+
+	if err := e.setupCoreFPICXS(); err != nil {
+		return nil, fmt.Errorf("failed to setup CoreFP.icxs: %w", err)
+	}
+
+	if err := e.setupCoreFP(); err != nil {
+		return nil, fmt.Errorf("failed to setup CoreFP: %w", err)
 	}
 
 	if err := e.setupHeap(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup heap: %w", err)
 	}
 
 	if err := e.setupStack(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup stack: %w", err)
 	}
 
 	if err := e.setupStart(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup start: %w", err)
 	}
 
 	if err := e.setupTrace(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup trace: %w", err)
 	}
 
 	return &e, nil
 }
 
 func (e *Emulator) DumpHeap() ([]byte, error) {
-	symbolTable := ip.SymbolTable()
-
-	heapHead, err := e.unicorn.MemRead(symbolTable["_malloc.heap_head"], 8)
+	heapHead, err := e.unicorn.MemRead(e.symbolTable["_malloc.heap_head"], 8)
 	if err != nil {
 		return nil, err
 	}
 	heapHeadAddr := binary.LittleEndian.Uint64(heapHead)
 
-	heapTail, err := e.unicorn.MemRead(symbolTable["_malloc.heap_tail"], 8)
+	heapTail, err := e.unicorn.MemRead(e.symbolTable["_malloc.heap_tail"], 8)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +181,9 @@ func (e *Emulator) hookRDTSC() error {
 	return nil
 }
 
-func (e *Emulator) loadInterposer() error {
+func (e *Emulator) loadInterposer(ip *interposer.Interposer) error {
+	pageSet := make(map[uint64]struct{})
+
 	for _, section := range ip.Sections() {
 		sectionAddr := section.Addr()
 		mappingAddr := sectionAddr
@@ -192,10 +197,10 @@ func (e *Emulator) loadInterposer() error {
 		for i := uint64(0); i < mappingSize; i += pageSize {
 			addr := mappingAddr + i
 
-			if _, ok := e.pageSet[addr]; ok {
+			if _, ok := pageSet[addr]; ok {
 				continue
 			}
-			e.pageSet[addr] = struct{}{}
+			pageSet[addr] = struct{}{}
 
 			if err := e.unicorn.MemMap(addr, pageSize); err != nil {
 				return err
@@ -223,52 +228,60 @@ func (e *Emulator) loadCoreFPICXS() error {
 	return e.unicorn.MemWrite(corefpicxsAddr, data)
 }
 
-func (e *Emulator) loadCoreFP() error {
-	size := e.corefpO.Size()
-	size += (pageSize - size) % pageSize
+func (e *Emulator) load(o *library.Object, baseAddr uint64) error {
+	virtSize, mappings := o.LoadInformation()
 
-	if err := e.unicorn.MemMap(corefpAddr, size); err != nil {
+	virtSize += (pageSize - virtSize) % pageSize
+	if err := e.unicorn.MemMap(baseAddr, virtSize); err != nil {
 		return err
 	}
 
-	data := e.corefpO.Data()
-	return e.unicorn.MemWrite(corefpAddr, data)
+	for addr, data := range mappings {
+		addr += baseAddr
+		if err := e.unicorn.MemWrite(addr, data); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (e *Emulator) loadCommerceCore() error {
-	size := e.commercecoreO.Size()
-	size += (pageSize - size) % pageSize
+func (e *Emulator) setupCoreFPICXS() error {
+	var addr [8]byte
+	binary.LittleEndian.PutUint64(addr[:], corefpicxsAddr)
 
-	if err := e.unicorn.MemMap(commercecoreAddr, size); err != nil {
+	if err := e.unicorn.MemWrite(e.symbolTable["_read.CoreFP$ICXS_data"], addr[:]); err != nil {
 		return err
 	}
 
-	data := e.commercecoreO.Data()
-	return e.unicorn.MemWrite(commercecoreAddr, data)
+	var size [8]byte
+	binary.LittleEndian.PutUint64(size[:], e.corefpicxsO.Size())
+
+	if err := e.unicorn.MemWrite(e.symbolTable["_read.CoreFP$ICXS_size"], size[:]); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (e *Emulator) loadCommerceKit() error {
-	size := e.commercekitO.Size()
-	size += (pageSize - size) % pageSize
+func (e *Emulator) setupCoreFP() error {
+	for _, sym := range []string{
+		library.SymbolFairPlayUnknown0.String(),
+		library.SymbolFairPlayUnknown1.String(),
+		library.SymbolFairPlayUnknown2.String(),
+		library.SymbolFairPlayUnknown3.String(),
+		library.SymbolFairPlayUnknown4.String(),
+		library.SymbolFairPlayUnknown5.String(),
+	} {
+		var addr [8]byte
+		binary.LittleEndian.PutUint64(addr[:], e.symbolTable[sym])
 
-	if err := e.unicorn.MemMap(commercekitAddr, size); err != nil {
-		return err
+		if err := e.unicorn.MemWrite(e.symbolTable["_dlsym."+sym], addr[:]); err != nil {
+			return err
+		}
 	}
 
-	data := e.commercekitO.Data()
-	return e.unicorn.MemWrite(commercekitAddr, data)
-}
-
-func (e *Emulator) loadStoreAgent() error {
-	size := e.storeagentO.Size()
-	size += (pageSize - size) % pageSize
-
-	if err := e.unicorn.MemMap(storeagentAddr, size); err != nil {
-		return err
-	}
-
-	data := e.storeagentO.Data()
-	return e.unicorn.MemWrite(storeagentAddr, data)
+	return nil
 }
 
 func (e *Emulator) setupHeap() error {
@@ -282,17 +295,15 @@ func (e *Emulator) setupHeap() error {
 	var sizeData [8]byte
 	binary.LittleEndian.PutUint64(sizeData[:], heapSize)
 
-	symbolTable := ip.SymbolTable()
-
-	if err := e.unicorn.MemWrite(symbolTable["_malloc.heap_head"], addrData[:]); err != nil {
+	if err := e.unicorn.MemWrite(e.symbolTable["_malloc.heap_head"], addrData[:]); err != nil {
 		return err
 	}
 
-	if err := e.unicorn.MemWrite(symbolTable["_malloc.heap_tail"], addrData[:]); err != nil {
+	if err := e.unicorn.MemWrite(e.symbolTable["_malloc.heap_tail"], addrData[:]); err != nil {
 		return err
 	}
 
-	if err := e.unicorn.MemWrite(symbolTable["_malloc.heap_size"], sizeData[:]); err != nil {
+	if err := e.unicorn.MemWrite(e.symbolTable["_malloc.heap_size"], sizeData[:]); err != nil {
 		return err
 	}
 
@@ -324,22 +335,29 @@ func (e *Emulator) setupTrace() error {
 
 	//goland:noinspection GoBoolExpressions
 	if trace.Flags&trace.FlagHookCode != 0 {
+		reverseTable := make(map[uint64]string, len(e.symbolTable))
+		for sym, addr := range e.symbolTable {
+			reverseTable[addr] = sym
+		}
+
 		hookCode := func(uc unicorn.Unicorn, addr uint64, size uint32) {
-			var instruction []byte
+			if sym, ok := reverseTable[addr]; ok {
+				_, _ = fmt.Fprintf(trace.Output, "->  0x%x <+?>: %s\n", addr, sym)
+				return
+			}
+
 			if trace.Flags&trace.FlagOnCodeHookDisassemble != 0 {
-				bytes, err := uc.MemRead(addr, uint64(size))
+				instruction, err := uc.MemRead(addr, uint64(size))
 				if err != nil {
 					logger.Print(err)
 				}
 
-				instruction = bytes
+				_, _ = fmt.Fprintf(trace.Output, "->  0x%x <+?>: ", addr)
+				for _, b := range instruction {
+					_, _ = fmt.Fprintf(trace.Output, "%02x ", b)
+				}
+				_, _ = fmt.Fprintf(trace.Output, "\n")
 			}
-
-			_, _ = fmt.Fprintf(trace.Output, "->  0x%x <+?>: ", addr)
-			for _, b := range instruction {
-				_, _ = fmt.Fprintf(trace.Output, "%02x ", b)
-			}
-			_, _ = fmt.Fprintf(trace.Output, "\n")
 		}
 		if _, err := e.unicorn.HookAdd(unicorn.HOOK_CODE, hookCode, 1, 0); err != nil {
 			return err
@@ -373,7 +391,6 @@ func (e *Emulator) setupTrace() error {
 			for _, b := range data {
 				_, _ = fmt.Fprintf(trace.Output, "%02x ", b)
 			}
-			_, _ = fmt.Fprintf(trace.Output, "\n")
 		}
 		if _, err := e.unicorn.HookAdd(unicorn.HOOK_MEM_VALID&^unicorn.HOOK_MEM_FETCH, hookMemValid, 1, 0); err != nil {
 			return err
@@ -413,7 +430,6 @@ func (e *Emulator) setupTrace() error {
 			for _, b := range data {
 				_, _ = fmt.Fprintf(trace.Output, "%02x ", b)
 			}
-			_, _ = fmt.Fprintf(trace.Output, "\n")
 
 			return false
 		}

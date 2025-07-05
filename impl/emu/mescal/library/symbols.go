@@ -24,7 +24,7 @@ const (
 	SymbolFairPlaySAPTeardown    = Symbol("_IPaI1oem5iL")
 	SymbolFairPlaySAPVerify      = Symbol("_gLg1CWr7p")
 
-	SymbolFairPlayContextInit        = Symbol("$0") // anonymous function called by -[FairPlayHelper init]
+	SymbolFairPlayGlobalContextInit  = Symbol("$0") // anonymous function called by -[FairPlayHelper init]
 	SymbolFairPlayKBSyncDataWithDSID = Symbol("$1") // anonymous function called by -[ADIProvisioningOperation _kbSyncDataWithDSID:], -[LoadDownloadQueueOperation _kbSyncDataWithDSID:], and -[PurchaseOperation _kbSyncDataWithDSID:]
 )
 

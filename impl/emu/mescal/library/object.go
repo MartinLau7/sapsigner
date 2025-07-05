@@ -13,6 +13,7 @@ type Object struct {
 	data     []byte
 	size     uint64
 	baseAddr uint64
+	segments []*macho.Segment
 	symTable map[Symbol]uint64
 	bindInfo []types.Bind
 	rebaInfo []types.Rebase
@@ -30,8 +31,6 @@ func NewCoreFPICXSObject(data []byte) (*Object, error) {
 
 func NewCoreFPObject(data []byte) (*Object, error) {
 	o := Object{
-		data: data,
-		size: uint64(len(data)),
 		symTable: map[Symbol]uint64{
 			SymbolFairPlayUnknown0: 0,
 			SymbolFairPlayUnknown1: 0,
@@ -42,7 +41,7 @@ func NewCoreFPObject(data []byte) (*Object, error) {
 		},
 	}
 
-	fatFile, err := macho.NewFatFile(bytes.NewReader(o.data))
+	fatFile, err := macho.NewFatFile(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +49,16 @@ func NewCoreFPObject(data []byte) (*Object, error) {
 	var file *macho.File
 	for _, fatArch := range fatFile.Arches {
 		if fatArch.CPU == types.CPUAmd64 {
-			file = fatArch.File
+			o.data = data[fatArch.Offset : fatArch.Offset+fatArch.Size]
+			o.size = uint64(fatArch.Size)
 
+			file = fatArch.File
 			break
 		}
 	}
 
 	o.baseAddr = file.GetBaseAddress()
+	o.segments = file.Segments()
 
 	for k := range o.symTable {
 		name := k.String()
@@ -87,14 +89,12 @@ func NewCoreFPObject(data []byte) (*Object, error) {
 
 func NewCommerceCoreObject(data []byte) (*Object, error) {
 	o := Object{
-		data: data,
-		size: uint64(len(data)),
 		symTable: map[Symbol]uint64{
 			SymbolFairPlayGetMacAddress: 0,
 		},
 	}
 
-	fatFile, err := macho.NewFatFile(bytes.NewReader(o.data))
+	fatFile, err := macho.NewFatFile(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
@@ -102,13 +102,16 @@ func NewCommerceCoreObject(data []byte) (*Object, error) {
 	var file *macho.File
 	for _, fatArch := range fatFile.Arches {
 		if fatArch.CPU == types.CPUAmd64 {
-			file = fatArch.File
+			o.data = data[fatArch.Offset : fatArch.Offset+fatArch.Size]
+			o.size = uint64(fatArch.Size)
 
+			file = fatArch.File
 			break
 		}
 	}
 
 	o.baseAddr = file.GetBaseAddress()
+	o.segments = file.Segments()
 
 	for k := range o.symTable {
 		name := k.String()
@@ -158,6 +161,7 @@ func NewCommerceKitObject(data []byte) (*Object, error) {
 	}
 
 	o.baseAddr = file.GetBaseAddress()
+	o.segments = file.Segments()
 
 	for k := range o.symTable {
 		name := k.String()
@@ -198,10 +202,11 @@ func NewStoreAgentObject(data []byte) (*Object, error) {
 	}
 
 	o.baseAddr = file.GetBaseAddress()
+	o.segments = file.Segments()
 
 	o.symTable = map[Symbol]uint64{
-		SymbolFairPlayContextInit:        0x1000C93C0 - o.baseAddr,
-		SymbolFairPlayKBSyncDataWithDSID: 0x1000C5FC0 - o.baseAddr,
+		SymbolFairPlayGlobalContextInit:  0x1000C5FC0 - o.baseAddr,
+		SymbolFairPlayKBSyncDataWithDSID: 0x1000C93C0 - o.baseAddr,
 	}
 
 	bindInfo, err := file.GetBindInfo()
@@ -238,6 +243,24 @@ func (o *Object) SymbolTable() map[string]uint64 {
 	}
 
 	return symTable
+}
+
+func (o *Object) LoadInformation() (uint64, map[uint64][]byte) {
+	virtSize := uint64(0)
+	mappings := make(map[uint64][]byte, len(o.segments))
+
+	var pageZero uint64
+	for _, segment := range o.segments {
+		if segment.Name == "__PAGEZERO" {
+			pageZero = segment.Memsz
+			continue
+		}
+
+		virtSize += segment.Memsz
+		mappings[segment.Addr-pageZero] = o.data[segment.Offset : segment.Offset+segment.Filesz]
+	}
+
+	return virtSize, mappings
 }
 
 func (o *Object) Fixup(baseAddr uint64, symbolTable map[string]uint64) error {
