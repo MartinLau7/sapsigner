@@ -32,7 +32,7 @@ endif
 all: vendor build
 .PHONY: all
 
-build: sapsigner.out
+build: sapsigner.out kbsync.out
 .PHONY: build
 
 clean:
@@ -57,6 +57,6 @@ ifeq ($(UNAME_SYSNAME),Darwin)
 endif
 endif
 
-sapsigner.out: FORCE
-	CGO_LDFLAGS_ALLOW='-Wl,-rpath,[^,]+' go build$(BUILD_ARGS) -o='$@' -trimpath ./cmd/sapsigner/...
+%.out: FORCE
+	CGO_LDFLAGS_ALLOW='-Wl,-rpath,[^,]+' go build$(BUILD_ARGS) -o='$@' -trimpath ./cmd/$(@:%.out=%)/...
 FORCE:
