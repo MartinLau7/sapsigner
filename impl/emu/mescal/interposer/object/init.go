@@ -26,7 +26,13 @@ func resolveRelocations() error {
 
 		switch typ_ {
 		case "X86_64_RELOC_BRANCH", "X86_64_RELOC_SIGNED":
+			k += 4
 			break
+
+		case "X86_64_RELOC_SIGNED_4":
+			k += 8
+			break
+
 		default:
 			return fmt.Errorf("relocation type not supported: %s", typ_)
 		}
@@ -40,7 +46,7 @@ func resolveRelocations() error {
 		offs -= SectionHeaders[sect][0]
 
 		relo := SymbolTable[name]
-		relo -= k + 4
+		relo -= k
 
 		var reloData [4]byte
 		binary.LittleEndian.PutUint32(reloData[:], uint32(relo))
